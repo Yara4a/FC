@@ -1,6 +1,22 @@
+import random  # Needed to generate random references
+import string  # Needed to use letters and digits
+
 # Apache Airlines - Seat Booking System
 # This program allows users to check, book, free seats, and view the booking layout.
 # F = Free, R = Reserved, S = Storage
+
+# Set to store all booking references and ensure uniqueness
+existing_references = set()
+
+# Function to generate a unique 8-character alphanumeric booking reference
+def generate_booking_reference():
+    while True:
+        # Create a random string of 8 characters using uppercase letters and digits
+        reference = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        # Check if this reference has already been used
+        if reference not in existing_references:
+            existing_references.add(reference)  # Save it to avoid duplicates
+            return reference  # Return the unique reference
 
 # Function to create the full seating layout of the plane
 def create_seats():
@@ -17,81 +33,80 @@ def create_seats():
 
 # Function to display the current status of all seats
 def show_booking_status(seats):
-    print("\nBooking Status")  # Print a header for clarity
-    print("Legend: F = Free, R = Reserved, S = Storage")  # Explain seat status codes
-    for row in range(1, 81):  # Loop through each row
-        row_status = []  # List to hold seat status strings for this row
-        for col in ['A', 'B', 'C', 'D', 'E', 'F']:  # Loop through seat columns
-            seat = f"{row}{col}"  # Build the seat label
+    print("\nBooking Status")
+    print("Legend: F = Free, R = Reserved, S = Storage")
+    for row in range(1, 81):
+        row_status = []
+        for col in ['A', 'B', 'C', 'D', 'E', 'F']:
+            seat = f"{row}{col}"
             if seat in seats:
-                row_status.append(f"{seat}:{seats[seat]}")  # Append seat status (e.g. 12B:F)
-        print(" ".join(row_status))  # Print the full row status
+                row_status.append(f"{seat}:{seats[seat]}")
+        print(" ".join(row_status))
 
 # Function to check if a specific seat is available
 def check_availability(seats):
-    seat = input("Enter the seat (e.g., 10A): ").upper()  # Get and format seat input
-    if seat in seats:  # Check if the seat exists
-        if seats[seat] == 'F':  # Free seat
+    seat = input("Enter the seat (e.g., 10A): ").upper()
+    if seat in seats:
+        if seats[seat] == 'F':
             print(f"{seat} is available")
-        elif seats[seat] == 'R':  # Already reserved
+        elif seats[seat] == 'R':
             print(f"{seat} is already booked")
-        elif seats[seat] == 'S':  # Storage seat
+        elif seats[seat] == 'S':
             print(f"{seat} is a storage area and cannot be booked")
     else:
-        print("Seat does not exist. Please check your input.")  # Invalid seat entered
+        print("Seat does not exist. Please check your input.")
 
 # Function to book a seat
 def book_seat(seats):
-    seat = input("Enter the seat to book: ").upper()  # Get and format seat input
-    if seat in seats:  # Check if the seat exists
-        if seats[seat] == 'F':  # If seat is free, book it
-            seats[seat] = 'R'  # Change status to Reserved
-            print(f"{seat} has been booked")
-        elif seats[seat] == 'R':  # Already reserved
+    seat = input("Enter the seat to book: ").upper()
+    if seat in seats:
+        if seats[seat] == 'F':
+            # Generate and show a unique booking reference
+            reference = generate_booking_reference()
+            seats[seat] = 'R'  # For now, we keep 'R' to indicate reserved (Part B Q2 will store ref)
+            print(f"{seat} has been booked. Booking reference: {reference}")
+        elif seats[seat] == 'R':
             print(f"{seat} is already booked")
         else:
-            print(f"{seat} cannot be booked")  # Storage or invalid
+            print(f"{seat} cannot be booked")
     else:
-        print("Seat does not exist")  # Invalid input
+        print("Seat does not exist")
 
 # Function to free up a reserved seat
 def free_seat(seats):
-    seat = input("Enter the seat to free: ").upper()  # Get and format seat input
-    if seat in seats:  # Check if the seat exists
-        if seats[seat] == 'R':  # If it's reserved
+    seat = input("Enter the seat to free: ").upper()
+    if seat in seats:
+        if seats[seat] == 'R':
             seats[seat] = 'F'  # Mark it as free again
             print(f"{seat} is now available")
         else:
-            print(f"{seat} is not currently booked")  # Seat is already free or storage
+            print(f"{seat} is not currently booked")
     else:
-        print("Seat does not exist")  # Invalid input
+        print("Seat does not exist")
 
 # Function to display all currently booked seats
 def show_booked_seats(seats):
-    print("\nBooked Seats")  # Header
-    # Filter out only seats marked as 'R' (reserved)
+    print("\nBooked Seats")
     booked = [seat for seat, status in seats.items() if status == 'R']
-    if booked:  # If there are any booked seats
-        print(" ".join(booked))  # Show all booked seat labels
+    if booked:
+        print(" ".join(booked))
     else:
-        print("No seats are currently booked")  # If none, tell the user
+        print("No seats are currently booked")
 
 # Main function to run the system
 def main():
     seats = create_seats()  # Initialize all seats
-    while True:  # Keep showing menu until user exits
-        # Display the main menu
+    while True:
         print("\n--- Apache Airlines Booking Menu ---")
         print("1. Check availability of seat")
         print("2. Book a seat")
         print("3. Free a seat")
         print("4. Show booking status")
         print("5. Exit programme")
-        print("6. Show all booked seats")  # New feature added for Q5
+        print("6. Show all booked seats")
 
-        choice = input("Choose an option (1–6): ")  # Get user choice
+        choice = input("Choose an option (1–6): ")
 
-        # Match user choice with actions
         if choice == '1':
             check_availability(seats)
         elif choice == '2':
@@ -101,12 +116,12 @@ def main():
         elif choice == '4':
             show_booking_status(seats)
         elif choice == '5':
-            print("Exiting programme. Goodbye.")  # Exit message
-            break  # Exit the loop and end program
+            print("Exiting programme. Goodbye.")
+            break
         elif choice == '6':
-            show_booked_seats(seats)  # Call the new function
+            show_booked_seats(seats)
         else:
-            print("Invalid option. Please try again.")  # If user enters something not in menu
+            print("Invalid option. Please try again.")
 
 # Run the system
 main()
