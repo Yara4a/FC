@@ -1,134 +1,150 @@
-import random
-import string
-import sqlite3
+# Import required libraries
+import random       # Used to generate random references
+import string       # Used for letters and digits in references
+import sqlite3      # Used to connect and interact with SQLite database
 
-# Connect to SQLite database (or create it)
-conn = sqlite3.connect('bookings.db')
-cursor = conn.cursor()
+# Define a class to represent one booking
+class Booking:
+    def __init__(self, reference, passport, first_name, last_name, seat):
+        self.reference = reference        # Unique booking reference
+        self.passport = passport          # Customer's passport number
+        self.first_name = first_name      # Customer's first name
+        self.last_name = last_name        # Customer's last name
+        self.seat = seat                  # Seat number booked
 
-# Create table for customer bookings
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS bookings (
-        reference TEXT PRIMARY KEY,
-        passport TEXT,
-        first_name TEXT,
-        last_name TEXT,
-        seat TEXT
-    )
-''')
-conn.commit()
+# Define the main booking system class
+class BookingSystem:
+    def __init__(self):
+        self.seats = self.create_seats()              # Initialise seat layout
+        self.existing_references = set()              # Set to keep track of used references
+        self.conn = sqlite3.connect('bookings.db')    # Connect to the SQLite database
+        self.cursor = self.conn.cursor()              # Create a cursor to run SQL commands
+        self.setup_database()                         # Create bookings table if it doesn't exist
 
-existing_references = set()
+    # Create the bookings table in the database
+    def setup_database(self):
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS bookings (
+                reference TEXT PRIMARY KEY,
+                passport TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                seat TEXT
+            )
+        ''')  # SQL command to create table with 5 fields
+        self.conn.commit()  # Save the changes to the database
 
-# Generate unique 8-character booking reference
-def generate_booking_reference():
-    while True:
-        ref = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-        if ref not in existing_references:
-            existing_references.add(ref)
-            return ref
+    # Generate all 480 seats and assign default statuses
+    def create_seats(self):
+        seats = {}  # Dictionary to hold seat info
+        for row in range(1, 81):  # Loop through rows 1 to 80
+            for col in ['A', 'B', 'C', 'D', 'E', 'F']:  # Loop through seat columns
+                seat = f"{row}{col}"  # Create seat label (e.g. 12A)
+                if row >= 77 and col in ['D', 'E', 'F']:
+                    seats[seat] = 'S'  # Mark as storage
+                else:
+                    seats[seat] = 'F'  # Mark as free
+        return seats  # Return the completed layout
 
-# Create the seating layout
-def create_seats():
-    seats = {}
-    for row in range(1, 81):
-        for col in ['A', 'B', 'C', 'D', 'E', 'F']:
-            seat = f"{row}{col}"
-            if row >= 77 and col in ['D', 'E', 'F']:
-                seats[seat] = 'S'
+    # Generate a unique 8-character alphanumeric booking reference
+    def generate_booking_reference(self):
+        while True:
+            ref = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))  # Create random string
+            if ref not in self.existing_references:  # Check if unique
+                self.existing_references.add(ref)  # Save the reference
+                return ref  # Return the unique reference
+
+    # Check if a seat is available
+    def check_availability(self):
+        seat = input("Enter the seat (e.g., 10A): ").upper()  # Ask for seat input
+        if seat in self.seats:  # Check if seat exists
+            status = self.seats[seat]  # Get current seat status
+            if status == 'F':
+                print(f"{seat} is available.")
+            elif status == 'S':
+                print(f"{seat} is a storage area.")
             else:
-                seats[seat] = 'F'
-    return seats
-
-# Show all seats
-def show_booking_status(seats):
-    print("\nBooking Status:")
-    for row in range(1, 81):
-        row_data = []
-        for col in ['A', 'B', 'C', 'D', 'E', 'F']:
-            seat = f"{row}{col}"
-            if seat in seats:
-                row_data.append(f"{seat}:{seats[seat]}")
-        print(" ".join(row_data))
-
-# Check availability
-def check_availability(seats):
-    seat = input("Enter the seat (e.g., 10A): ").upper()
-    if seat in seats:
-        status = seats[seat]
-        if status == 'F':
-            print(f"{seat} is available.")
-        elif status == 'S':
-            print(f"{seat} is a storage area.")
+                print(f"{seat} is booked with reference {status}")
         else:
-            print(f"{seat} is booked with reference {status}")
-    else:
-        print("Seat does not exist.")
+            print("Seat does not exist.")
 
-# Book a seat and store customer details
-def book_seat(seats):
-    seat = input("Enter seat to book: ").upper()
-    if seat in seats and seats[seat] == 'F':
-        passport = input("Enter passport number: ")
-        first_name = input("Enter first name: ")
-        last_name = input("Enter last name: ")
-        reference = generate_booking_reference()
+    # Book a seat and store customer data in the database
+    def book_seat(self):
+        seat = input("Enter seat to book: ").upper()  # Ask user for seat
+        if seat in self.seats and self.seats[seat] == 'F':  # Check if seat is available
+            passport = input("Enter passport number: ")       # Get passport input
+            first_name = input("Enter first name: ")          # Get first name
+            last_name = input("Enter last name: ")            # Get last name
+            reference = self.generate_booking_reference()     # Create unique booking reference
 
-        seats[seat] = reference
+            self.seats[seat] = reference  # Assign reference to seat
 
-        # Save to database
-        cursor.execute('''
-            INSERT INTO bookings (reference, passport, first_name, last_name, seat)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (reference, passport, first_name, last_name, seat))
-        conn.commit()
+            # Create booking object and insert into database
+            booking = Booking(reference, passport, first_name, last_name, seat)
+            self.cursor.execute('''
+                INSERT INTO bookings (reference, passport, first_name, last_name, seat)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (booking.reference, booking.passport, booking.first_name, booking.last_name, booking.seat))
+            self.conn.commit()  # Save to database
 
-        print(f"{seat} booked successfully. Reference: {reference}")
-    elif seat in seats and seats[seat] != 'F':
-        print(f"{seat} is already booked or unavailable.")
-    else:
-        print("Invalid seat.")
-
-# Free a booked seat and remove customer from DB
-def free_seat(seats):
-    seat = input("Enter seat to free: ").upper()
-    if seat in seats and seats[seat] not in ['F', 'S']:
-        reference = seats[seat]
-        seats[seat] = 'F'
-
-        # Delete from database
-        cursor.execute('DELETE FROM bookings WHERE reference = ?', (reference,))
-        conn.commit()
-
-        print(f"{seat} is now free. Booking {reference} removed.")
-    else:
-        print("Seat not booked or invalid.")
-
-# Main menu
-def main():
-    seats = create_seats()
-    while True:
-        print("\n--- Apache Airlines Booking Menu ---")
-        print("1. Check availability")
-        print("2. Book a seat")
-        print("3. Free a seat")
-        print("4. Show booking status")
-        print("5. Exit")
-
-        choice = input("Choose an option: ")
-
-        if choice == '1':
-            check_availability(seats)
-        elif choice == '2':
-            book_seat(seats)
-        elif choice == '3':
-            free_seat(seats)
-        elif choice == '4':
-            show_booking_status(seats)
-        elif choice == '5':
-            print("Exiting. Goodbye!")
-            break
+            print(f"{seat} booked successfully. Reference: {reference}")
+        elif seat in self.seats and self.seats[seat] != 'F':
+            print(f"{seat} is already booked or unavailable.")
         else:
-            print("Invalid option.")
+            print("Invalid seat.")
 
-main()
+    # Cancel a booking and remove customer data from database
+    def free_seat(self):
+        seat = input("Enter seat to free: ").upper()  # Ask user for seat to free
+        if seat in self.seats and self.seats[seat] not in ['F', 'S']:  # Ensure seat is booked
+            reference = self.seats[seat]  # Get reference tied to seat
+            self.seats[seat] = 'F'  # Reset seat to free
+
+            # Delete booking from database using the reference
+            self.cursor.execute('DELETE FROM bookings WHERE reference = ?', (reference,))
+            self.conn.commit()  # Save the change
+
+            print(f"{seat} is now free. Booking {reference} removed.")
+        else:
+            print("Seat not booked or invalid.")
+
+    # Display the current layout of all seats
+    def show_booking_status(self):
+        print("\nBooking Status:")
+        for row in range(1, 81):  # Loop through all rows
+            row_data = []  # List to hold status of one row
+            for col in ['A', 'B', 'C', 'D', 'E', 'F']:  # Loop through all columns
+                seat = f"{row}{col}"  # Create seat label
+                if seat in self.seats:
+                    row_data.append(f"{seat}:{self.seats[seat]}")  # Append status
+            print(" ".join(row_data))  # Print row
+
+    # Main menu loop
+    def run(self):
+        while True:
+            print("\n--- Apache Airlines Booking Menu ---")
+            print("1. Check availability")
+            print("2. Book a seat")
+            print("3. Free a seat")
+            print("4. Show booking status")
+            print("5. Exit")
+
+            choice = input("Choose an option: ")  # Get user input
+
+            if choice == '1':
+                self.check_availability()
+            elif choice == '2':
+                self.book_seat()
+            elif choice == '3':
+                self.free_seat()
+            elif choice == '4':
+                self.show_booking_status()
+            elif choice == '5':
+                print("Exiting. Goodbye!")
+                break  # Exit the menu
+            else:
+                print("Invalid option.")
+
+# Create and run the booking system
+system = BookingSystem()
+system.run()
